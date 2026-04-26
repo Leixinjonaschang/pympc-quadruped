@@ -29,6 +29,8 @@ class ModelPredictiveController():
         
         self.is_initialized = False
         self.is_first_run = True
+        self.last_mpc_solve_time = None
+        self.last_mpc_solve_iteration = None
 
         self._load_parameters(mpc_config, robot_config)
     
@@ -98,7 +100,9 @@ class ModelPredictiveController():
             solve_start = time.time()
             self.__contact_forces = self._solve_mpc(ref_traj, gait_table, solver=solver)[0:12]
             solve_end = time.time()
-            print('MPC solved in {:3f}s.'.format(solve_end - solve_start))
+            self.last_mpc_solve_time = solve_end - solve_start
+            self.last_mpc_solve_iteration = iter_counter
+            print('MPC solved in {:3f}s.'.format(self.last_mpc_solve_time))
             print(self.yaw, self.yaw_desired)
 
             if debug and iter_counter == iter_debug:

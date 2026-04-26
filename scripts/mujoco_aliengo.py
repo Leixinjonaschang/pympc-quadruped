@@ -5,6 +5,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../linear_mpc'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '../utils/'))
 
 import argparse
+import time
 
 import mujoco
 import numpy as np
@@ -26,6 +27,98 @@ THIGH_BODIES = ("FL_thigh", "FR_thigh", "RL_thigh", "RR_thigh")
 
 def center_viewer_on_robot(viewer, data):
     viewer.cam.lookat[:] = data.body("trunk").xpos
+
+
+LEG_NAMES = ("FL", "FR", "RL", "RR")
+
+
+def format_vector(vec, precision=2):
+    return " ".join(f"{value:.{precision}f}" for value in vec)
+
+
+def update_viewer_monitor(
+    viewer,
+    data,
+    robot_data,
+    predictive_controller,
+    gait,
+    swing_states,
+    contact_forces,
+    base_vel_base_des,
+    yaw_turn_rate_des,
+    iter_counter,
+    monitor_rate,
+    real_time_factor,
+):
+    if viewer is None:
+        return
+
+    solve_time = predictive_controller.last_mpc_solve_time
+    solve_time_text = "pending" if solve_time is None else f"{solve_time * 1000:.2f} ms"
+    solve_iter = predictive_controller.last_mpc_solve_iteration
+    solve_iter_text = "pending" if solve_iter is None else str(solve_iter)
+    monitor_rate_text = "off" if monitor_rate <= 0 else f"{monitor_rate:.1f} Hz"
+
+    contact_states = ["0" if swing_state > 0 else "1" for swing_state in swing_states]
+    contact_text = " ".join(
+        f"{leg}:{state}" for leg, state in zip(LEG_NAMES, contact_states)
+    )
+
+    leg_fz = contact_forces[2::3]
+    leg_fz_text = " ".join(
+        f"{leg}:{fz:.1f}" for leg, fz in zip(LEG_NAMES, leg_fz)
+    )
+
+    rpy_deg = np.rad2deg(robot_data.rpy_base)
+
+    viewer.set_texts(
+        (
+            mujoco.mjtFontScale.mjFONTSCALE_150,
+            mujoco.mjtGridPos.mjGRID_TOPLEFT,
+            (
+                "Sim time\n"
+                "Real-time factor\n"
+                "Control iter\n"
+                "Monitor rate\n"
+                "Gait / phase\n"
+                "Cmd vel / yaw rate\n"
+                "Base z\n"
+                "Base rpy deg\n"
+                "Base vel\n"
+                "Base omega\n"
+                "Contact\n"
+                "Last MPC solve\n"
+                "Last MPC iter\n"
+                "Sum Fz\n"
+                "Leg Fz"
+            ),
+            (
+                f"{data.time:.3f} s\n"
+                f"{real_time_factor:.2f}x\n"
+                f"{iter_counter}\n"
+                f"{monitor_rate_text}\n"
+                f"{gait.name} / {gait.phase:.2f}\n"
+                f"{format_vector(base_vel_base_des)} / {yaw_turn_rate_des:.2f}\n"
+                f"{robot_data.pos_base[2]:.3f} m\n"
+                f"{format_vector(rpy_deg, precision=1)}\n"
+                f"{format_vector(robot_data.lin_vel_base)}\n"
+                f"{format_vector(robot_data.ang_vel_base)}\n"
+                f"{contact_text}\n"
+                f"{solve_time_text}\n"
+                f"{solve_iter_text}\n"
+                f"{np.sum(leg_fz):.1f} N\n"
+                f"{leg_fz_text}"
+            ),
+        )
+    )
+
+
+def get_monitor_update_interval(model, monitor_rate):
+    if monitor_rate <= 0:
+        return None
+
+    sim_dt = model.opt.timestep
+    return max(1, int(round(1.0 / (monitor_rate * sim_dt))))
 
 
 def reset(model, data, robot_config):
@@ -130,11 +223,14 @@ def get_simulated_sensor_data(data):
     return simulated_sensor_data
 
 
-def initialize_robot(model, data, viewer, robot_config, robot_data):
+def initialize_robot(model, data, viewer, robot_config, robot_data, monitor_rate=20.0):
     predictive_controller = ModelPredictiveController(LinearMpcConfig, robot_config)
     leg_controller = LegController(robot_config.Kp_swing, robot_config.Kd_swing)
     init_gait = Gait.STANDING
     vel_base_des = [0., 0., 0.]
+    monitor_update_interval = get_monitor_update_interval(model, monitor_rate)
+    wall_start = time.monotonic()
+    sim_start = data.time
     
     for iter_counter in range(800):
 
@@ -166,6 +262,26 @@ def initialize_robot(model, data, viewer, robot_config, robot_data):
         mujoco.mj_step(model, data)
         if viewer is not None:
             center_viewer_on_robot(viewer, data)
+            if (
+                monitor_update_interval is not None
+                and iter_counter % monitor_update_interval == 0
+            ):
+                elapsed_wall_time = max(time.monotonic() - wall_start, 1e-9)
+                real_time_factor = (data.time - sim_start) / elapsed_wall_time
+                update_viewer_monitor(
+                    viewer,
+                    data,
+                    robot_data,
+                    predictive_controller,
+                    init_gait,
+                    swing_states,
+                    contact_forces,
+                    vel_base_des,
+                    0.,
+                    iter_counter,
+                    monitor_rate,
+                    real_time_factor,
+                )
             viewer.sync()
 
 
@@ -184,10 +300,18 @@ def parse_args():
         action="store_true",
         help="Run without opening the MuJoCo passive viewer.",
     )
+    parser.add_argument(
+        "--monitor-rate",
+        type=float,
+        default=20.0,
+        help="Viewer monitor overlay refresh rate in Hz. Use 0 to disable it.",
+    )
     return parser.parse_args()
 
 
-def run_control_loop(model, data, robot_config, robot_data, steps=0, viewer=None):
+def run_control_loop(
+    model, data, robot_config, robot_data, steps=0, viewer=None, monitor_rate=20.0
+):
     predictive_controller = ModelPredictiveController(LinearMpcConfig, robot_config)
     leg_controller = LegController(robot_config.Kp_swing, robot_config.Kd_swing)
 
@@ -198,6 +322,9 @@ def run_control_loop(model, data, robot_config, robot_data, steps=0, viewer=None
     yaw_turn_rate_des = 0.
 
     iter_counter = 0
+    monitor_update_interval = get_monitor_update_interval(model, monitor_rate)
+    wall_start = time.monotonic()
+    sim_start = data.time
 
     while steps == 0 or iter_counter < steps:
         if viewer is not None and not viewer.is_running():
@@ -247,6 +374,26 @@ def run_control_loop(model, data, robot_config, robot_data, steps=0, viewer=None
         mujoco.mj_step(model, data)
         if viewer is not None:
             center_viewer_on_robot(viewer, data)
+            if (
+                monitor_update_interval is not None
+                and iter_counter % monitor_update_interval == 0
+            ):
+                elapsed_wall_time = max(time.monotonic() - wall_start, 1e-9)
+                real_time_factor = (data.time - sim_start) / elapsed_wall_time
+                update_viewer_monitor(
+                    viewer,
+                    data,
+                    robot_data,
+                    predictive_controller,
+                    gait,
+                    swing_states,
+                    contact_forces,
+                    vel_base_des,
+                    yaw_turn_rate_des,
+                    iter_counter,
+                    monitor_rate,
+                    real_time_factor,
+                )
             viewer.sync()
         iter_counter += 1
 
@@ -273,14 +420,26 @@ def main():
 
     if args.no_viewer:
         run_control_loop(
-            model, data, robot_config, robot_data, steps=args.steps, viewer=None
+            model,
+            data,
+            robot_config,
+            robot_data,
+            steps=args.steps,
+            viewer=None,
+            monitor_rate=args.monitor_rate,
         )
     else:
         from mujoco import viewer as mujoco_viewer
 
         with mujoco_viewer.launch_passive(model, data) as viewer:
             run_control_loop(
-                model, data, robot_config, robot_data, steps=args.steps, viewer=viewer
+                model,
+                data,
+                robot_config,
+                robot_data,
+                steps=args.steps,
+                viewer=viewer,
+                monitor_rate=args.monitor_rate,
             )
 
         
