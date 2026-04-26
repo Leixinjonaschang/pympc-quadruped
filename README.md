@@ -6,52 +6,47 @@ A Python implementation about quadruped locomotion using convex model predictive
 ## Installation
 
 ### 1. Create a Virtual Environment
-#### a. Install virtualenv:
-~~~
-$ sudo apt install python3-virtualenv
-~~~
-or
-~~~
-$ pip install virtualenv
-~~~
 
-#### b. Create a virtual environment:
+On macOS Apple Silicon, use Python 3.13 with `uv`:
+
 ~~~
 $ cd ${path-to-pympc-quadruped}
-$ virtualenv --python /usr/bin/python3.8 pympc-env
+$ uv python install 3.13
+$ uv sync
 ~~~
 
 ### 2. Install Simulators
 #### a. Mujoco
-- Create a folder named `.mujoco` in your home directory: `$ mkdir ~/.mujoco`.
-- Download Mujoco library from https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz. Extract and move it to the `.mujoco` folder.
-- Add the following to your `.bashrc` file:
-    ~~~
-    export LD_LIBRARY_PATH=/home/${your-usr-name}/.mujoco/mujoco210/bin
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/nvidia
-    export PATH="$LD_LIBRARY_PATH:$PATH"
-    export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so
-    ~~~
-    Do not forget to run `$ source ~/.bashrc`.
-- Test if the installation is successfully finished:
-    ~~~
-    $ cd ~/.mujoco/mujoco210/bin
-    $ ./simulate ../model/humanoid.xml
-    ~~~
+
+The MuJoCo demo uses the official `mujoco` Python package from PyPI. No manual
+MuJoCo 2.1 download or `mujoco-py` setup is required.
+
+Run a headless smoke test:
+
+~~~
+$ uv run python scripts/mujoco_aliengo.py --no-viewer --steps 200
+~~~
+
+On macOS with uv-managed Python, launch the passive viewer through the wrapper
+that points MuJoCo's `mjpython` app at uv's Python shared library:
+
+~~~
+$ uv run python scripts/mjpython_uv.py scripts/mujoco_aliengo.py
+~~~
 
 #### b. Isaac Gym
 - Download Isaac Gym Preview Release from this [website](https://developer.nvidia.com/isaac-gym). 
-- The tutorial for installation is in the `./isaacgym/docs/install.html`. **I recommand the user to install it in the previous virtual environment**. 
+- The tutorial for installation is in the `./isaacgym/docs/install.html`. Install it into this project's virtual environment if you use the Isaac Gym demo.
     ~~~
     $ cd ${path-to-issacgym}/python
-    $ source ${path-to-pympc-quadruped}/pympc-env/bin/activate
-    (pympc-env)$ pip install -e .
+    $ source ${path-to-pympc-quadruped}/.venv/bin/activate
+    (.venv)$ pip install -e .
     ~~~
 - Then you can trying to run examples in `./isaacgym/python/examples`. Note that if you follow the instructions above, you need to run the examples in the virtual environments.
     ~~~
     $ cd ${path-to-isaacgym}/python/examples
-    $ source ${path-to-pympc-quadruped}/pympc-env/bin/activate
-    (pympc-env)$ python 1080_balls_of_solitude.py
+    $ source ${path-to-pympc-quadruped}/.venv/bin/activate
+    (.venv)$ python 1080_balls_of_solitude.py
     ~~~
 - For troubleshooting, check `./isaacgym/docs/index.html`
 
@@ -61,17 +56,15 @@ $ virtualenv --python /usr/bin/python3.8 pympc-env
 
 ### 3. Install Dependences
 
-**a) Install Pinocchio** 
+**a) Install Pinocchio**
 
-Pinocchio provides the state-of-the-art rigid body kinematics and dynamic algorithms. You could follow [this link](https://stack-of-tasks.github.io/pinocchio/download.html) to install Pinocchio.
+Pinocchio is installed from PyPI through the `pin` dependency in `pyproject.toml`.
 
 **b) Install other dependences**
 
 ~~~
 $ cd ${path-to-pympc-quadruped}
-$ source ${path-to-pympc-quadruped}/pympc-env/bin/activate
-(pympc-env)$ pip install --upgrade pip
-(pympc-env)$ pip install -r requirements.txt 
+$ uv sync
 ~~~
 
 ## Sign Convention

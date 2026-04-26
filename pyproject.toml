@@ -1,0 +1,20 @@
+[project]
+name = "pympc-quadruped"
+version = "0.1.0"
+description = "Convex MPC locomotion for quadruped robots."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "drake>=1.51,<1.52",
+    "matplotlib",
+    "mujoco>=3.7,<3.8",
+    "numba",
+    "numpy",
+    "osqp",
+    "pin>=3.9,<3.10",
+    "qpsolvers",
+    "scipy",
+]
+
+[tool.uv]
+package = false
