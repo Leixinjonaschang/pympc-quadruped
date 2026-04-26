@@ -38,6 +38,7 @@ LEG_TRAJECTORY_COLORS = (
 )
 SUPPORT_POLYGON_COLOR = np.array([0., 0., 0., 1.], dtype=np.float32)
 CONTACT_FORCE_COLOR = np.array([0.1, 0.8, 0.15, 1.], dtype=np.float32)
+FOOTHOLD_MARKER_COLOR = np.array([1.0, 0.0, 0.85, 1.0], dtype=np.float32)
 GEOM_IDENTITY = np.eye(3).reshape(-1)
 
 
@@ -160,6 +161,24 @@ def draw_trajectory_sphere(viewer, pos, radius, rgba):
         np.array([radius, 0., 0.], dtype=np.float64),
         np.asarray(pos, dtype=np.float64),
         rgba,
+    )
+
+
+def draw_foothold_marker(viewer, pos):
+    marker_pos = np.asarray(pos, dtype=np.float64).copy()
+    marker_pos[2] += 0.035
+    draw_trajectory_line(
+        viewer,
+        pos,
+        marker_pos,
+        FOOTHOLD_MARKER_COLOR,
+        width=4.0,
+    )
+    draw_trajectory_sphere(
+        viewer,
+        marker_pos,
+        0.02,
+        FOOTHOLD_MARKER_COLOR,
     )
 
 
@@ -502,9 +521,9 @@ def update_viewer_foot_trajectories(
 
         rgba = LEG_TRAJECTORY_COLORS[leg_idx]
         for points in trajectory_segments:
-            draw_polyline(viewer, points, rgba, width=2.5)
+            draw_polyline(viewer, points, rgba, width=10.0)
         for planned_foothold in planned_footholds[leg_idx]:
-            draw_trajectory_sphere(viewer, planned_foothold, 0.025, rgba)
+            draw_foothold_marker(viewer, planned_foothold)
 
 
 def get_monitor_update_interval(model, monitor_rate):
