@@ -64,3 +64,134 @@ There is currently no formal test suite. For changes to controller math, add foc
 Recent commits use short, imperative summaries such as `align desired base height` and `add multi-robots support`. Keep commit messages concise and action-oriented.
 
 Pull requests should describe the behavior change, list simulator or test commands run, and mention any environment assumptions. Include screenshots or GIFs for visible locomotion changes, and link related issues or notes when applicable. Avoid mixing simulator setup, controller behavior, and documentation cleanup in one PR unless the changes are tightly related.
+
+## Codebase Structure Notes
+
+This project is organized as a small quadruped control stack: simulator adapters, robot state abstraction, linear MPC control, robot model assets, and documentation.
+
+```text
+pympc-quadruped/
+├── AGENTS.md
+│   └── Repository collaboration and development guidelines.
+├── README.md
+│   └── Project overview, installation, MuJoCo/Isaac Gym usage, and convention notes.
+├── LICENSE
+│   └── Open source license.
+├── pyproject.toml
+│   └── uv/Python 3.13 project metadata and dependencies: drake, mujoco, pinocchio, qpsolvers, etc.
+├── uv.lock
+│   └── uv dependency lockfile.
+├── requirements.txt
+│   └── Lean compatibility dependency list.
+├── .gitignore
+│   └── Git ignore rules.
+├── .DS_Store
+│   └── macOS-generated file with no project semantics.
+│
+├── config/
+│   ├── cmd.py
+│   │   └── Currently empty; reserved for command or motion input configuration.
+│   ├── linear_mpc_configs.py
+│   │   └── MPC parameters: control timestep, MPC update interval, horizon, gravity, friction coefficient, Q/R weights, and default velocity commands.
+│   └── robot_configs.py
+│       └── Robot parameter abstraction. `RobotConfig` is the base class; `AliengoConfig` and `A1Config` define mass, desired base height, inertia, max vertical force, swing height, and swing-leg PD gains.
+│
+├── linear_mpc/
+│   ├── gait.py
+│   │   └── Gait scheduling. The `Gait` enum defines standing, trotting, jumping, and pacing patterns, then generates MPC contact tables and per-leg swing/stance phases.
+│   ├── mpc.py
+│   │   └── Core linear MPC. `ModelPredictiveController` converts robot state into a 13D single-rigid-body state, generates reference trajectories, builds continuous/discrete state-space models, assembles QP costs and friction constraints, and solves contact forces with Drake or qpsolvers.
+│   ├── swing_foot_trajectory_generator.py
+│   │   └── Swing-foot trajectory generation. It plans footholds from gait timing, base velocity, desired velocity, and yaw rate, then uses Drake `PiecewisePolynomial` cubic Hermite curves for foot trajectories.
+│   └── leg_controller.py
+│       └── Joint torque synthesis. Stance legs map MPC contact force through `tau = J.T @ -f`; swing legs use task-space PD control to track foot trajectory targets.
+│
+├── utils/
+│   ├── robot_data.py
+│   │   └── Robot state abstraction. It receives simulator or sensor state, normalizes quaternion/pose/joint data, uses Pinocchio to compute foot positions, foot Jacobians, thigh positions, relative foot velocities, and includes a terrain-normal estimation sketch.
+│   ├── kinematics.py
+│   │   └── Kinematics and Lie-group math utilities: quaternion/rotation/Euler conversions, so3/se3 helpers, SE3 adjoints, exponential maps, and open-chain forward kinematics.
+│   ├── dynamics.py
+│   │   └── Small dynamics helper for constructing 3x3 CoM inertia matrices from URDF inertia entries.
+│   └── isaacgym_utils.py
+│       └── Isaac Gym adapter helpers for creating simulations, ground, robot assets, envs/actors, viewers, and slope/stair/pyramid terrains.
+│
+├── scripts/
+│   ├── mujoco_aliengo.py
+│   │   └── Aliengo MuJoCo entry point. It loads MJCF, reads MuJoCo state, updates `RobotData`, runs gait/MPC/swing-foot/leg-control logic, writes `data.ctrl`, and supports `--no-viewer` and `--steps`.
+│   ├── mjpython_uv.py
+│   │   └── macOS + uv MuJoCo GUI wrapper. It locates MuJoCo's bundled `mjpython` app and sets `MJPYTHON_LIBPYTHON`.
+│   └── isaacgym_a1.py
+│       └── A1 Isaac Gym entry point. It creates multiple robot instances, reads GPU tensor state, runs the same MPC control chain per robot, and writes DOF force tensors.
+│
+├── robot/
+│   ├── aliengo/
+│   │   ├── aliengo.xml
+│   │   │   └── MuJoCo MJCF model with trunk, legs, foot geoms, sensors, actuators, and ground setup.
+│   │   ├── urdf/aliengo.urdf
+│   │   │   └── Aliengo URDF used by Pinocchio for kinematics and Jacobians.
+│   │   └── meshes/
+│   │       ├── trunk.stl
+│   │       ├── hip.stl
+│   │       ├── thigh.stl
+│   │       ├── thigh_mirror.stl
+│   │       └── calf.stl
+│   │           └── Aliengo visual/collision mesh assets.
+│   └── a1/
+│       ├── a1_license.txt
+│       │   └── License notes for A1 model assets.
+│       ├── urdf/a1.urdf
+│       │   └── A1 URDF loaded by Isaac Gym and used by `RobotData`/Pinocchio.
+│       └── meshes/
+│           ├── trunk.dae
+│           ├── trunk_A1.png
+│           ├── hip.dae
+│           ├── thigh.dae
+│           ├── thigh_mirror.dae
+│           └── calf.dae
+│               └── A1 visual/collision meshes and texture assets.
+│
+└── doc/
+    ├── linear_mpc.md
+    │   └── Linear MPC theory notes: single-rigid-body model, Euler-angle approximation, discretization, QP form, and friction-cone constraints.
+    ├── state_estimation_kf.md
+    │   └── State-estimation theory notes for IMU orientation filtering plus linear Kalman filtering. The implementation path is not currently active.
+    └── results/trotting10_mujoco.gif
+        └── MuJoCo trotting demo result media.
+```
+
+### Control Abstraction Layers
+
+1. **Asset layer**: `robot/` contains MJCF, URDF, meshes, and textures. MuJoCo loads `robot/aliengo/aliengo.xml`; Pinocchio uses URDF files for kinematics; Isaac Gym loads the A1 URDF.
+
+2. **Configuration layer**: `config/` separates robot constants and MPC tuning from algorithm code. `LinearMpcConfig` controls time scales, QP weights, gravity, and friction. `RobotConfig` subclasses provide robot-specific physical and control parameters.
+
+3. **Math and state layer**: `utils/kinematics.py` provides geometry utilities. `utils/robot_data.py` is the main adapter between raw simulator state and controller-ready quantities such as `R_base`, `pos_feet`, `pos_base_feet`, `Jv_feet`, and `base_vel_base_feet`.
+
+4. **Control primitive layer**: `linear_mpc/gait.py` schedules contacts, `swing_foot_trajectory_generator.py` plans swing-foot targets, and `leg_controller.py` maps contact forces or foot tracking errors into joint torques.
+
+5. **Optimization layer**: `linear_mpc/mpc.py` is the core controller. It uses a 13D single-rigid-body state `x = [roll, pitch, yaw, pos, omega, vel, gravity]` and a 12D input `u = [f_FL, f_FR, f_RL, f_RR]`, discretizes the dynamics over the horizon, and solves a constrained QP for contact forces.
+
+6. **Simulator entry layer**: `scripts/mujoco_aliengo.py` and `scripts/isaacgym_a1.py` initialize simulators, read state, call the shared control pipeline, and write actuator commands back to the simulator.
+
+The main runtime data flow is:
+
+```text
+MuJoCo / Isaac Gym state
+        ↓
+RobotData.update()
+        ↓
+Pinocchio computes foot positions, velocities, and Jacobians
+        ↓
+Gait generates swing_states and gait_table
+        ↓
+MPC solves contact forces from current state and gait_table
+        ↓
+SwingFootTrajectoryGenerator computes swing-leg targets
+        ↓
+LegController generates 12 joint torques
+        ↓
+Simulator actuator / DOF force commands
+```
+
+`state_estimation` is documented in `doc/state_estimation_kf.md`, but the active code path currently uses simulator ground-truth state. `RobotData.update(..., state_estimation=True)` raises `NotImplementedError`.
