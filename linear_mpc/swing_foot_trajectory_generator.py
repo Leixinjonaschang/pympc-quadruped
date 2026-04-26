@@ -35,24 +35,52 @@ class SwingFootTrajectoryGenerator():
     def __set_final_foot_position(self, footpos_final):
         self.__footpos_final = footpos_final
 
-    def generate_swing_foot_trajectory(self, total_swing_time, cur_swing_time):
+    @staticmethod
+    def create_swing_trajectory(
+        footpos_init,
+        footpos_final,
+        total_swing_time,
+        swing_height=AliengoConfig.swing_height,
+    ):
         break_points = np.array([[0.],
                                  [total_swing_time / 2.0],
                                  [total_swing_time]], dtype=np.float32)
 
-        footpos_middle_time = (self.__footpos_init + self.__footpos_final) / 2
-        footpos_middle_time[2] = self.__swing_height
+        footpos_init = np.asarray(footpos_init, dtype=np.float32).reshape(3, 1)
+        footpos_final = np.asarray(footpos_final, dtype=np.float32).reshape(3, 1)
+
+        footpos_middle_time = (footpos_init + footpos_final) / 2
+        footpos_middle_time[2] += swing_height
 
         # print(footpos_middle_time)
         footpos_break_points = np.hstack((
-            self.__footpos_init.reshape(3, 1),
+            footpos_init,
             footpos_middle_time.reshape(3, 1),
-            self.__footpos_final.reshape(3, 1)
+            footpos_final,
         ))
 
         vel_break_points = np.zeros((3, 3), dtype=np.float32)
+        # Keep the apex tangent horizontal instead of stopping the foot at mid-swing.
+        mid_velocity = np.squeeze(footpos_final - footpos_init) / max(
+            total_swing_time, 1e-6
+        )
+        mid_velocity[2] = 0.0
+        vel_break_points[:, 1] = mid_velocity
 
-        swing_traj = PiecewisePolynomial.CubicHermite(break_points, footpos_break_points, vel_break_points)
+        return PiecewisePolynomial.CubicHermite(
+            break_points, footpos_break_points, vel_break_points
+        )
+
+    def __generate_swing_trajectory(self, total_swing_time):
+        return self.create_swing_trajectory(
+            self.__footpos_init,
+            self.__footpos_final,
+            total_swing_time,
+            self.__swing_height,
+        )
+
+    def generate_swing_foot_trajectory(self, total_swing_time, cur_swing_time):
+        swing_traj = self.__generate_swing_trajectory(total_swing_time)
 
         # print(cur_swing_time)
         pos_swingfoot = swing_traj.value(cur_swing_time)
@@ -65,6 +93,53 @@ class SwingFootTrajectoryGenerator():
         # plt.show()
 
         return np.squeeze(pos_swingfoot), np.squeeze(vel_swingfoot)
+
+    def sample_remaining_swing_trajectory(self, gait: Gait, num_samples):
+        """Return world-frame samples from the current swing time to touchdown."""
+        swing_state = gait.get_swing_state()[self.__leg_id]
+        if swing_state <= 0 or self.__is_first_swing:
+            return np.empty((0, 3), dtype=np.float32)
+
+        total_swing_time = gait.swing_time
+        if total_swing_time <= 0:
+            return np.empty((0, 3), dtype=np.float32)
+
+        num_samples = max(2, int(num_samples))
+        remaining_swing_time = np.clip(
+            self.__remaining_swing_time, 0., total_swing_time
+        )
+        cur_swing_time = total_swing_time - remaining_swing_time
+        sample_times = np.linspace(
+            cur_swing_time, total_swing_time, num_samples, dtype=np.float32
+        )
+        swing_traj = self.__generate_swing_trajectory(total_swing_time)
+
+        return np.array(
+            [np.squeeze(swing_traj.value(t)) for t in sample_times],
+            dtype=np.float32,
+        )
+
+    def get_planned_foothold(self, gait: Gait):
+        swing_state = gait.get_swing_state()[self.__leg_id]
+        if swing_state <= 0 or self.__is_first_swing:
+            return None
+
+        return np.squeeze(self.__footpos_final).astype(np.float32)
+
+    def get_current_swing_plan(self, gait: Gait):
+        swing_state = gait.get_swing_state()[self.__leg_id]
+        if swing_state <= 0 or self.__is_first_swing:
+            return None
+
+        total_swing_time = gait.swing_time
+        remaining_swing_time = np.clip(
+            self.__remaining_swing_time, 0., total_swing_time
+        )
+        return {
+            "initial": np.squeeze(self.__footpos_init).astype(np.float32),
+            "final": np.squeeze(self.__footpos_final).astype(np.float32),
+            "phase": 1.0 - remaining_swing_time / total_swing_time,
+        }
     
     def compute_traj_swingfoot(self, robot_data: RobotData, gait: Gait):
         pos_base = np.array(robot_data.pos_base, dtype=np.float32)

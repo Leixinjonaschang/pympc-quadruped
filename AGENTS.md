@@ -27,7 +27,7 @@ Run the MuJoCo GUI demo on macOS:
 uv run python scripts/mjpython_uv.py scripts/mujoco_aliengo.py --monitor-rate 20
 ```
 
-The MuJoCo viewer overlay shows demo monitoring information such as base state, gait/contact state, contact forces, real-time factor, and last MPC solve time. Use `--monitor-rate HZ` to control the overlay refresh rate, or `--monitor-rate 0` to disable it.
+The MuJoCo GUI shows foot trajectory visualization over the MPC horizon by default. Use `--foot-traj-rate HZ` to control redraw frequency, `--foot-traj-rate 0` to disable it, and `--foot-traj-samples N` to control samples across the horizon for each foot path. The viewer overlay shows demo monitoring information such as base state, gait/contact state, contact forces, real-time factor, and last MPC solve time. Use `--monitor-rate HZ` to control the overlay refresh rate, or `--monitor-rate 0` to disable it.
 
 Run the Isaac Gym demo after installing Isaac Gym into the same environment:
 
@@ -39,7 +39,7 @@ Pinocchio, MuJoCo, Isaac Gym, and some ROS-related packages require separate sys
 
 ## MuJoCo Migration Notes
 
-The MuJoCo Aliengo demo was migrated from the deprecated `mujoco_py` API to the official `mujoco` Python API. The entry point now uses `mujoco.MjModel.from_xml_path`, `mujoco.MjData`, `mujoco.mj_step`, named accessors such as `data.body("trunk")` and `data.geom("fl_foot")`, and `mujoco.viewer.launch_passive` for the GUI path. The script also supports `--steps N` and `--no-viewer` for finite automated smoke tests, plus `--monitor-rate HZ` for throttled viewer overlay updates.
+The MuJoCo Aliengo demo was migrated from the deprecated `mujoco_py` API to the official `mujoco` Python API. The entry point now uses `mujoco.MjModel.from_xml_path`, `mujoco.MjData`, `mujoco.mj_step`, named accessors such as `data.body("trunk")` and `data.geom("fl_foot")`, `mujoco.viewer.launch_passive` for the GUI path, and `viewer.user_scn` for horizon foot-trajectory debug geometry. The script also supports `--steps N` and `--no-viewer` for finite automated smoke tests, plus `--monitor-rate HZ` for throttled viewer overlay updates and `--foot-traj-rate HZ` for throttled trajectory redraws.
 
 The project now has `pyproject.toml` and `uv.lock`; `requirements.txt` is kept as a lean compatibility list and no longer includes `mujoco-py` or the old ROS environment capture. On macOS with uv-managed standalone Python, plain `uv run mjpython ...` may fail because MuJoCo's trampoline cannot find `libpython3.13.dylib`; use `scripts/mjpython_uv.py`, which points the MuJoCo app at uv's real Python shared library.
 
@@ -120,7 +120,7 @@ pympc-quadruped/
 │
 ├── scripts/
 │   ├── mujoco_aliengo.py
-│   │   └── Aliengo MuJoCo entry point. It loads MJCF, reads MuJoCo state, updates `RobotData`, runs gait/MPC/swing-foot/leg-control logic, writes `data.ctrl`, and supports `--no-viewer`, `--steps`, and `--monitor-rate`.
+│   │   └── Aliengo MuJoCo entry point. It loads MJCF, reads MuJoCo state, updates `RobotData`, runs gait/MPC/swing-foot/leg-control logic, writes `data.ctrl`, shows swing-foot trajectory debug geometry in GUI mode, and supports `--no-viewer`, `--steps`, `--monitor-rate`, `--foot-traj-rate`, and `--foot-traj-samples`.
 │   ├── mjpython_uv.py
 │   │   └── macOS + uv MuJoCo GUI wrapper. It locates MuJoCo's bundled `mjpython` app and sets `MJPYTHON_LIBPYTHON`.
 │   └── isaacgym_a1.py
