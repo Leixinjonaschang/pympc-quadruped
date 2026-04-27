@@ -1,5 +1,16 @@
+"""MuJoCo Aliengo demo for the linear MPC quadruped controller.
+
+The script is intentionally kept as the top-level orchestration layer:
+MuJoCo provides simulator state, RobotData converts it into controller-friendly
+kinematic quantities, the gait scheduler decides contact phases, MPC computes
+stance contact forces, swing-foot controllers generate foot targets, and the leg
+controller maps those commands into joint torques.
+"""
+
 import os
 import sys
+# Keep the teaching scripts runnable from the repository root without requiring
+# the project to be installed as a Python package.
 sys.path.append(os.path.join(os.path.dirname(__file__), '../config'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '../linear_mpc'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '../utils/'))
@@ -34,6 +45,7 @@ STATE_ESTIMATION = False
 
 
 def parse_args():
+    """Parse demo options used for smoke tests, GUI demos, and visualization."""
     parser = argparse.ArgumentParser(
         description="Run the Aliengo linear MPC demo with the official MuJoCo API."
     )
@@ -83,12 +95,22 @@ def run_control_loop(
     foot_traj_rate=20.0,
     foot_traj_samples=256,
 ):
+    """Run the closed-loop locomotion controller.
+
+    One loop iteration corresponds to one low-level control step. The MPC solver
+    is updated at its own slower interval inside ModelPredictiveController, while
+    the leg controller produces torques every iteration.
+    """
     predictive_controller = ModelPredictiveController(LinearMpcConfig, robot_config)
     leg_controller = LegController(robot_config.Kp_swing, robot_config.Kd_swing)
 
+    # The gait object encodes the contact schedule. TROTTING10 alternates
+    # diagonal leg pairs and provides both swing phase and MPC contact tables.
     gait = Gait.TROTTING10
     swing_foot_trajs = [SwingFootTrajectoryGenerator(leg_idx) for leg_idx in range(4)]
 
+    # Desired base velocity is expressed in the robot base frame. The MPC module
+    # converts it to the world frame using the current base orientation.
     vel_base_des = np.array([1.2, 0., 0.])
     yaw_turn_rate_des = 0.
 
@@ -102,11 +124,15 @@ def run_control_loop(
         if viewer is not None and not viewer.is_running():
             break
 
+        # In this teaching demo we use MuJoCo ground-truth state. The
+        # state-estimation path is left as a future extension in RobotData.
         if not STATE_ESTIMATION:
             sensor_data = get_true_simulation_data(model, data)
         else:
             sensor_data = get_simulated_sensor_data(data)
 
+        # RobotData runs Pinocchio kinematics and exposes foot positions,
+        # Jacobians, and base-frame quantities used by MPC and leg control.
         robot_data.update(
             pos_base=sensor_data[0],
             lin_vel_base=sensor_data[1],
@@ -120,6 +146,8 @@ def run_control_loop(
         swing_states = gait.get_swing_state()
         gait_table = gait.get_gait_table()
 
+        # The MPC computes optimal ground reaction forces for stance legs. Swing
+        # legs receive zero contact force and are handled by foot tracking below.
         predictive_controller.update_robot_state(robot_data)
         contact_forces = predictive_controller.update_mpc_if_needed(
             iter_counter,
@@ -134,6 +162,8 @@ def run_control_loop(
         pos_targets_swingfeet = np.zeros((4, 3))
         vel_targets_swingfeet = np.zeros((4, 3))
 
+        # For swing legs, plan a foothold and sample the cubic Hermite swing
+        # trajectory. Targets are returned in the base frame for the leg PD task.
         for leg_idx in range(4):
             if swing_states[leg_idx] > 0:   # leg is in swing state
                 swing_foot_trajs[leg_idx].set_foot_placement(
@@ -146,6 +176,8 @@ def run_control_loop(
                 pos_targets_swingfeet[leg_idx, :] = base_pos_base_swingfoot_des
                 vel_targets_swingfeet[leg_idx, :] = base_vel_base_swingfoot_des
 
+        # The leg controller combines stance force tracking and swing-foot PD
+        # tracking, then outputs one torque for each actuated joint.
         torque_cmds = leg_controller.update(
             robot_data,
             contact_forces,
@@ -158,6 +190,8 @@ def run_control_loop(
         mujoco.mj_step(model, data)
         if viewer is not None:
             center_viewer_on_robot(viewer, data)
+            # Debug geometry can be expensive, so it is redrawn at a separate
+            # rate from the physics and low-level control loop.
             if (
                 foot_traj_update_interval is not None
                 and iter_counter % foot_traj_update_interval == 0
@@ -177,6 +211,7 @@ def run_control_loop(
                     contact_forces,
                     foot_traj_samples,
                 )
+            # The text overlay is also throttled independently from physics.
             if (
                 monitor_update_interval is not None
                 and iter_counter % monitor_update_interval == 0
@@ -202,6 +237,8 @@ def run_control_loop(
         
         time.sleep(0.0002)  # run the simulation slower for visualization
 
+        # Long GUI demos periodically reset to avoid unbounded counter growth and
+        # to clear any accumulated user-scene debug geometry.
         if iter_counter == 50000:
             reset_robot_state(model, data, robot_config)
             if viewer is not None:
@@ -218,6 +255,8 @@ def main():
 
     robot_config = AliengoConfig
 
+    # Initialize MuJoCo state before constructing RobotData so the first
+    # controller update sees a valid floating-base pose and joint configuration.
     reset_robot_state(model, data, robot_config)
     mujoco.mj_step(model, data)
 
