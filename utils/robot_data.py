@@ -80,7 +80,7 @@ class RobotData():
         else:
             raise NotImplementedError
 
-        # NOTE: quat in mujoco / Isaac Gym: (real part, imaginary part)
+        # NOTE: quat in MuJoCo: (real part, imaginary part)
         #       quat in pinocchio: (imaginary part, real part)
         quat_base_converted = [self.quat_base[1], self.quat_base[2], 
             self.quat_base[3], self.quat_base[0]]

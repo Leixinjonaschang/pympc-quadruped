@@ -35,22 +35,3 @@ class AliengoConfig(RobotConfig):
     swing_height = 0.1
     Kp_swing = np.diag([200., 200., 200.])
     Kd_swing = np.diag([20., 20., 20.])
-
-
-class A1Config(RobotConfig):
-    mass_base: float = 4.713
-    base_height_des: float = 0.42
-    base_inertia_base = make_com_inertial_matrix(
-        ixx=0.01683993, 
-        ixy=8.3902e-05, 
-        ixz=0.000597679, 
-        iyy=0.056579028, 
-        iyz=2.5134e-05, 
-        izz=0.064713601
-    ) * 10
-
-    fz_max = 500.
-
-    swing_height = 0.1
-    Kp_swing = np.diag([700., 700., 700.])
-    Kd_swing = np.diag([20., 20., 20.])
