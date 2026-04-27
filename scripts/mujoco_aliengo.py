@@ -51,13 +51,13 @@ def parse_args():
     parser.add_argument(
         "--monitor-rate",
         type=float,
-        default=20.0,
+        default=5.0,
         help="Viewer monitor overlay refresh rate in Hz. Use 0 to disable it.",
     )
     parser.add_argument(
         "--foot-traj-rate",
         type=float,
-        default=20.0,
+        default=40.0,
         help=(
             "Viewer swing-foot trajectory redraw rate in Hz. "
             "Use 0 to disable it."
@@ -66,7 +66,7 @@ def parse_args():
     parser.add_argument(
         "--foot-traj-samples",
         type=int,
-        default=256,
+        default=64,
         help="Samples across the MPC horizon for each visualized foot trajectory.",
     )
     return parser.parse_args()
@@ -199,6 +199,8 @@ def run_control_loop(
                 )
             viewer.sync()
         iter_counter += 1
+        
+        time.sleep(0.0002)  # run the simulation slower for visualization
 
         if iter_counter == 50000:
             reset_robot_state(model, data, robot_config)

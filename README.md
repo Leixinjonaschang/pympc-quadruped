@@ -15,8 +15,7 @@ Install `uv` first if it is not already available, then create the project
 environment:
 
 ~~~bash
-$ cd ${path-to-pympc-quadruped}
-$ uv python install 3.13
+$ cd pympc-quadruped
 $ uv sync
 ~~~
 
@@ -26,8 +25,7 @@ On macOS, especially Apple Silicon with uv-managed Python, use the same `uv`
 environment setup:
 
 ~~~bash
-$ cd ${path-to-pympc-quadruped}
-$ uv python install 3.13
+$ cd pympc-quadruped
 $ uv sync
 ~~~
 
@@ -38,35 +36,18 @@ For example, use `uv run python ...` instead of calling `python` directly.
 
 ### Ubuntu
 
-Run a headless smoke test:
+Run the simulation and controller.
 
 ~~~bash
-$ uv run python scripts/mujoco_aliengo.py --no-viewer --steps 200
-~~~
-
-Run the MuJoCo GUI demo:
-
-~~~bash
-$ uv run python scripts/mujoco_aliengo.py --monitor-rate 20
+$ uv run python scripts/mujoco_aliengo.py 
 ~~~
 
 ### macOS
 
-Run a headless smoke test:
-
+Launch the simulation and controller.
 ~~~bash
-$ uv run python scripts/mujoco_aliengo.py --no-viewer --steps 200
+$ uv run python scripts/mjpython_uv.py scripts/mujoco_aliengo.py
 ~~~
-
-Launch the GUI through the wrapper that points MuJoCo's bundled `mjpython` app
-at uv's Python shared library:
-
-~~~bash
-$ uv run python scripts/mjpython_uv.py scripts/mujoco_aliengo.py --monitor-rate 20
-~~~
-
-The wrapper is needed because plain `uv run mjpython ...` may not find
-`libpython3.13.dylib` from uv's standalone Python installation.
 
 ### Options
 
