@@ -19,6 +19,6 @@ class LinearMpcConfig:
     Q: np.ndarray = np.diag([5., 5., 10., 10., 10., 50., 0.01, 0.01, 0.2, 0.2, 0.2, 0.2, 0.])
     R: np.ndarray = np.diag([1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5])
 
-    cmd_xvel: float = 0.
-    cmd_yvel: float = 0.
+    cmd_xvel: float = 1.2
+    cmd_yvel: float = 0.0
     cmd_yaw_turn_rate: float = 0.

@@ -109,8 +109,8 @@ def run_control_loop(
 
     # Desired base velocity is expressed in the robot base frame. The MPC module
     # converts it to the world frame using the current base orientation.
-    vel_base_des = np.array([1.2, 0., 0.])
-    yaw_turn_rate_des = 0.
+    vel_base_des = np.array([LinearMpcConfig.cmd_xvel, LinearMpcConfig.cmd_yvel, 0.])
+    yaw_turn_rate_des = LinearMpcConfig.cmd_yaw_turn_rate
 
     iter_counter = 0
     monitor_update_interval = get_viewer_update_interval(model, monitor_rate)
