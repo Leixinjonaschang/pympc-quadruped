@@ -3,6 +3,49 @@ A Python implementation about quadruped locomotion using convex model predictive
 
 ![image](https://github.com/yinghansun/pympc-quadruped/blob/main/doc/results/trotting10_mujoco.gif)
 
+## File Structure
+
+The repository is organized around a small quadruped control stack: robot assets,
+configuration, shared math/state utilities, MPC control modules, simulator entry
+points, and documentation.
+
+~~~text
+pympc-quadruped/
+├── config/                 # Robot and controller configuration values
+│   ├── linear_mpc_configs.py
+│   └── robot_configs.py
+├── linear_mpc/             # Convex MPC locomotion implementation
+│   ├── gait.py             # Contact schedule and gait phase generation
+│   ├── leg_controller.py   # Stance force and swing tracking torque control
+│   ├── mpc.py              # Linear MPC model, QP assembly, and force solving
+│   └── swing_foot_trajectory_generator.py
+│                           # Swing footstep and trajectory generation
+├── utils/                  # Shared math, robot data, and MuJoCo helper modules
+│   ├── dynamics.py         # Inertia matrix construction helpers
+│   ├── kinematics.py       # Quaternion, SE(3), and kinematics utilities
+│   ├── mujoco_foot_trajectory_visualization.py
+│   │                       # Viewer debug geometry for foot trajectories
+│   ├── mujoco_simulation_utils.py
+│   ├── mujoco_viewer_utils.py
+│   └── robot_data.py       # Simulator/sensor state to controller data adapter
+├── scripts/                # Runnable MuJoCo demos and wrappers
+│   ├── mujoco_aliengo.py   # Main Aliengo simulation entry point
+│   └── mjpython_uv.py      # macOS uv wrapper for MuJoCo's mjpython launcher
+├── robot/                  # Robot descriptions and mesh assets
+│   └── aliengo/
+│       ├── aliengo.xml     # MuJoCo MJCF model
+│       ├── urdf/           # Pinocchio URDF model
+│       └── meshes/         # Visual and collision meshes
+├── doc/                    # Theory notes and result media
+│   ├── linear_mpc.md
+│   ├── state_estimation_kf.md
+│   └── results/
+├── pyproject.toml          # uv project metadata and dependencies
+├── uv.lock                 # Locked dependency versions
+├── requirements.txt        # Lean compatibility dependency list
+└── README.md
+~~~
+
 ## Installation
 
 This project is now MuJoCo-only. It uses Python 3.13 with `uv`, the official
