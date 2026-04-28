@@ -1,8 +1,8 @@
 import mujoco
 import numpy as np
 
-from linear_mpc_configs import LinearMpcConfig
-from swing_foot_trajectory_generator import SwingFootTrajectoryGenerator
+from config.linear_mpc_configs import LinearMpcConfig
+from linear_mpc.swing_foot_trajectory_generator import SwingFootTrajectoryGenerator
 
 
 LEG_TRAJECTORY_COLORS = (

@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pinocchio
 
-from kinematics import adSE3_Rp, quat2matrix, quat2ZYXangle, vec_format_standardization
+from utils.kinematics import adSE3_Rp, quat2matrix, quat2ZYXangle, vec_format_standardization
 
 
 class RobotData():
