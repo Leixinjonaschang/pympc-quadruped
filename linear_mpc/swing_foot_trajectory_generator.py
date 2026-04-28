@@ -1,16 +1,15 @@
 import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../config'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../utils'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import matplotlib.pyplot as plt
 import numpy as np
 from pydrake.all import PiecewisePolynomial
-from gait import Gait
-from robot_data import RobotData
+from linear_mpc.gait import Gait
+from utils.robot_data import RobotData
 
-from linear_mpc_configs import LinearMpcConfig
-from robot_configs import AliengoConfig
+from config.linear_mpc_configs import LinearMpcConfig
+from config.robot_configs import AliengoConfig
 
 class SwingFootTrajectoryGenerator():
 

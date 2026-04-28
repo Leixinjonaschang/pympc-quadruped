@@ -1,11 +1,11 @@
 import os
 import sys
 from typing import List
-sys.path.append(os.path.join(os.path.dirname(__file__), '../utils'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import numpy as np
 
-from robot_data import RobotData
+from utils.robot_data import RobotData
 
 class LegController():
     '''Compute torques for each joint.

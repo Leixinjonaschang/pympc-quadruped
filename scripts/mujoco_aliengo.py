@@ -11,9 +11,7 @@ import os
 import sys
 # Keep the teaching scripts runnable from the repository root without requiring
 # the project to be installed as a Python package.
-sys.path.append(os.path.join(os.path.dirname(__file__), '../config'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../linear_mpc'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../utils/'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import argparse
 import time
@@ -21,24 +19,24 @@ import time
 import mujoco
 import numpy as np
 
-from gait import Gait
-from leg_controller import LegController
-from linear_mpc_configs import LinearMpcConfig
-from mpc import ModelPredictiveController
-from mujoco_foot_trajectory_visualization import update_viewer_foot_trajectories
-from mujoco_simulation_utils import (
+from linear_mpc.gait import Gait
+from linear_mpc.leg_controller import LegController
+from config.linear_mpc_configs import LinearMpcConfig
+from linear_mpc.mpc import ModelPredictiveController
+from utils.mujoco_foot_trajectory_visualization import update_viewer_foot_trajectories
+from utils.mujoco_simulation_utils import (
     get_simulated_sensor_data,
     get_true_simulation_data,
     reset_robot_state,
 )
-from mujoco_viewer_utils import (
+from utils.mujoco_viewer_utils import (
     center_viewer_on_robot,
     get_viewer_update_interval,
     update_viewer_monitor,
 )
-from robot_configs import AliengoConfig
-from robot_data import RobotData
-from swing_foot_trajectory_generator import SwingFootTrajectoryGenerator
+from config.robot_configs import AliengoConfig
+from utils.robot_data import RobotData
+from linear_mpc.swing_foot_trajectory_generator import SwingFootTrajectoryGenerator
 
 
 STATE_ESTIMATION = False

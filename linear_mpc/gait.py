@@ -1,11 +1,11 @@
 import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../config'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from enum import Enum
 import numpy as np
 
-from linear_mpc_configs import LinearMpcConfig
+from config.linear_mpc_configs import LinearMpcConfig
 
 class Gait(Enum):
     '''

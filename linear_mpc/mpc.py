@@ -3,8 +3,7 @@ import sys
 import time
 from typing import Union
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../config'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../utils'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import matplotlib.pyplot as plt
 from numba import jit, vectorize, float32
@@ -13,10 +12,10 @@ from scipy.linalg import expm
 from pydrake.all import MathematicalProgram, Solve
 from qpsolvers import solve_qp
 
-from kinematics import quat2ZYXangle, vec2so3
-from linear_mpc_configs import LinearMpcConfig
-from robot_configs import RobotConfig
-from robot_data import RobotData
+from utils.kinematics import quat2ZYXangle, vec2so3
+from config.linear_mpc_configs import LinearMpcConfig
+from config.robot_configs import RobotConfig
+from utils.robot_data import RobotData
 
 
 class ModelPredictiveController():
@@ -102,8 +101,8 @@ class ModelPredictiveController():
             solve_end = time.time()
             self.last_mpc_solve_time = solve_end - solve_start
             self.last_mpc_solve_iteration = iter_counter
-            print('MPC solved in {:3f}s.'.format(self.last_mpc_solve_time))
-            print(self.yaw, self.yaw_desired)
+            # print('MPC solved in {:3f}s.'.format(self.last_mpc_solve_time))
+            # print(self.yaw, self.yaw_desired)
 
             if debug and iter_counter == iter_debug:
                 contact_forces_debug = self._solve_mpc(ref_traj, gait_table, solver=solver, debug=debug)
